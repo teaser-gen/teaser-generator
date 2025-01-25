@@ -1,0 +1,269 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teaser Generator - Ein Produkt von easyRED</title>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #e60023;
+            --secondary-color: #ffffff;
+            --background-color: #1a1a1a;
+            --text-color: #ffffff;
+            --input-background: #2a2a2a;
+            --input-border: #444;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            text-align: center;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            width: 100%;
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header img {
+            max-width: 150px;
+        }
+
+        header h1 {
+            color: var(--secondary-color);
+            margin: 10px 0 0;
+        }
+
+        .container {
+            background-color: var(--background-color);
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 700px;
+            width: 90%;
+            margin-top: 20px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        label {
+            text-align: left;
+            display: block;
+            margin: 10px 0 5px;
+        }
+
+        input[type="file"], select {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--input-background);
+            border: 1px solid var(--input-border);
+            color: var(--text-color);
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+
+        video {
+            width: 100%;
+            max-width: 600px;
+            border: 2px solid var(--primary-color);
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: var(--secondary-color);
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        button:hover {
+            background-color: #cc001e;
+        }
+
+        #progressBar {
+            width: 100%;
+            max-width: 600px;
+            background-color: var(--input-background);
+            height: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        #progressBar div {
+            height: 100%;
+            background-color: var(--primary-color);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        #status {
+            margin-top: 15px;
+            font-size: 1rem;
+            color: var(--primary-color);
+        }
+
+        #downloadLink {
+            display: none;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: var(--primary-color);
+            color: var(--secondary-color);
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        #downloadLink:hover {
+            background-color: #cc001e;
+        }
+
+        footer {
+            margin-top: 20px;
+            padding: 10px;
+            text-align: center;
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        footer span {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="logo_easy_red_minimal_admin.png" alt="easyRED Logo">
+        <h1>Teaser Generator - Ein Produkt von easyRED</h1>
+    </header>
+
+    <div class="container">
+        <label for="videoInput">Wähle ein Video:</label>
+        <input type="file" id="videoInput" accept="video/*">
+
+        <label for="qualitySelect">Wähle die Teaser-Qualität:</label>
+        <select id="qualitySelect">
+            <option value="original">Original-Qualität</option>
+            <option value="480">480p - 854x480</option>
+            <option value="720">HD Ready - 1280x720</option>
+            <option value="1080">Full HD - 1920x1080</option>
+        </select>
+
+        <button id="generateTeaser">Teaser generieren</button>
+        <div id="progressBar"><div></div></div>
+        <p id="status">Kein Video geladen.</p>
+        <a id="downloadLink" href="#" download="teaser.mp4">Teaser herunterladen</a>
+    </div>
+
+    <footer>
+        <p>Ein Produkt von <span>easyRED</span>. Ihr Partner für kreative Lösungen.</p>
+        &copy; 2025 easyRED. Alle Rechte vorbehalten.
+    </footer>
+
+    <script>
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        const ffmpeg = createFFmpeg({ log: true });
+
+        const videoInput = document.getElementById('videoInput');
+        const qualitySelect = document.getElementById('qualitySelect');
+        const generateButton = document.getElementById('generateTeaser');
+        const progressBar = document.getElementById('progressBar').firstElementChild;
+        const status = document.getElementById('status');
+        const downloadLink = document.getElementById('downloadLink');
+
+        generateButton.addEventListener('click', async () => {
+            if (!videoInput.files[0]) {
+                alert('Bitte lade ein Video hoch!');
+                return;
+            }
+
+            const file = videoInput.files[0];
+            const selectedQuality = qualitySelect.value;
+
+            if (!ffmpeg.isLoaded()) {
+                status.textContent = 'FFmpeg wird geladen...';
+                await ffmpeg.load();
+            }
+
+            const inputFileName = 'input.mp4';
+            const outputFileName = 'teaser.mp4';
+            ffmpeg.FS('writeFile', inputFileName, await fetchFile(file));
+
+            const durationCommand = await ffmpeg.run('-i', inputFileName, '-hide_banner');
+            const durationMatch = /Duration: (\d+):(\d+):(\d+\.\d+)/.exec(durationCommand);
+
+            if (!durationMatch) {
+                status.textContent = 'Fehler: Videolänge konnte nicht ermittelt werden.';
+                return;
+            }
+
+            const totalDuration =
+                parseInt(durationMatch[1]) * 3600 +
+                parseInt(durationMatch[2]) * 60 +
+                parseFloat(durationMatch[3]);
+
+            const teaserSegments = [
+                { start: Math.floor(totalDuration * 0.1), duration: Math.min(10, totalDuration * 0.1) },
+                { start: Math.floor(totalDuration * 0.5), duration: Math.min(10, totalDuration * 0.1) },
+                { start: Math.floor(totalDuration * 0.8), duration: Math.min(10, totalDuration * 0.1) }
+            ];
+
+            let concatList = '';
+
+            for (let i = 0; i < teaserSegments.length; i++) {
+                const segmentOutput = `segment_${i}.mp4`;
+                await ffmpeg.run(
+                    '-i',
+                    inputFileName,
+                    '-ss',
+                    teaserSegments[i].start.toString(),
+                    '-t',
+                    teaserSegments[i].duration.toString(),
+                    '-c:v',
+                    'libx264',
+                    '-preset',
+                    'fast',
+                    '-s',
+                    selectedQuality === 'original' ? '1920x1080' : `${selectedQuality}x${Math.floor(selectedQuality * 0.5625)}`,
+                    segmentOutput
+                );
+                concatList += `file '${segmentOutput}'
+`;
+            }
+
+            ffmpeg.FS('writeFile', 'concat_list.txt', concatList);
+
+            await ffmpeg.run('-f', 'concat', '-safe', '0', '-i', 'concat_list.txt', '-c', 'copy', outputFileName);
+
+            const data = ffmpeg.FS('readFile', outputFileName);
+
+            const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
+            const videoURL = URL.createObjectURL(videoBlob);
+
+            downloadLink.href = videoURL;
+            downloadLink.style.display = 'block';
+            downloadLink.download = 'teaser.mp4';
+
+            status.textContent = 'Teaser erfolgreich erstellt!';
+        });
+    </script>
+</body>
+</html>
